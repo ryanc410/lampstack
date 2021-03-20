@@ -32,6 +32,12 @@ command -v ufw 2> /dev/null
 # Change ownership of web root directory
 chown www-data:www-data /var/www/html/ -R
 
+# Remove Directory Indexing from Web Root
+sed -i 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf
+
+# Modify apache2/mods-enabled/dir.conf to server .php files before .html
+sed -i 's/DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm/DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf
+
 # Create servername.conf to suppress warning about fqdn
 echo "ServerName localhost">>/etc/apache2/conf-available/servername.conf
 a2enconf servername.conf
