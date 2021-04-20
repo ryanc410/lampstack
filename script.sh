@@ -71,6 +71,7 @@ check_root() {
     fi
 }
 check_root 
+apt update && apt upgrade -y
 apache_install
 php_install
 vhost
