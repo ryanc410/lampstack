@@ -19,7 +19,7 @@ apache_install() {
     systemctl reload apache2
     mkdir /var/www/${DOMAIN}
     chown www-data:www-data /var/www/${DOMAIN} -R
-    echo "
+    cat << _EOF_ > /etc/apache2/site-available/"${DOMAIN}".conf
 <VirtualHost *:80>
     ServerName "${DOMAIN}"
     ServerAlias www."${DOMAIN}"
@@ -29,12 +29,13 @@ apache_install() {
     
     ErrorLog "${APACHE_LOG_DIR}"/"${DOMAIN}"_error.log
     CustomLog "${APACHE_LOG_DIR}"/"${DOMAIN}"_access.log combined
-</VirtualHost>" >>/etc/apache2/sites-available/"${DOMAIN}".conf
+</VirtualHost>
+_EOF_
     a2ensite "${DOMAIN}".conf
     systemctl reload apache2
 }
 vhost() {
-    echo "
+cat << _EOF_ > /var/www/"${DOMAIN}"/index.html
 <!DOCTYPE html>
 <html lang="en">
 <html>
@@ -59,7 +60,8 @@ vhost() {
 
 
 </body>
-</html>"/var/www/"${DOMAIN}"/index.html
+</html>
+_EOF_
 }
 check_root() {
     if [[ $EUID -ne 0 ]]; then
