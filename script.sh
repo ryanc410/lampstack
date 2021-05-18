@@ -1,41 +1,85 @@
 #!/bin/bash
+########################################################################
+# Server Setup Script
+# Author: Ryan Cook
+# Date: 05/15/2021
+# Use on a fresh install of Ubuntu Server to install a full LAMP Stack
+########################################################################
 
-DOMAIN=$(hostname)
+DOMAIN=$(hostname -f)
+rootpass=${REPLY}
+APACHE_LOG_DIR=/var/log/apache2/
+SSH=/etc/ssh/sshd_config
+
+if [[ $EUID -ne 0 ]]; then
+    clear
+    echo "Must run script as root user.."
+    sleep 3
+    exit 1
+fi
+
+apt update && apt upgrade -y
+
 php_install() {
-    apt install software-properties-common -y
-    add-apt-repository ppa:ondrej/php -y
-    apt install php8.0 php8.0-fpm php8.0-mysql php8.0-opcache php8.0-cli -y
-    a2enmod proxy_fcgi setenvif
-    a2enconf php8.0-fpm
-    systemctl enable php8.0-fpm && systemctl start php8.0-fpm
+  clear
+  echo "**** Configuring PHP ****"
+  sleep 2
+  apt install software-properties-common -y
+  add-apt-repository ppa:ondrej/php -y
+  apt install libapache2-mod-php php8.0 php8.0-fpm php8.0-mysql php8.0-mbstring php8.0-intl php8.0-opcache php8.0-cli phpmyadmin -y
+  a2enmod proxy_fcgi setenvif
+  a2enconf php8.0-fpm
+  systemctl enable php*.*-fpm && systemctl start php*.*-fpm
+  
+  sed 's/memory_limit = 128M/memory_limit = 512M/g' /etc/php/*.*/fpm/php.ini
+  sed 's/memory_limit = 128M/memory_limit = 512M/g' /etc/php/*.*/apache2/php.ini
+  sed 's/memory_limit = 128M/memory_limit = 512M/g' /etc/php/*.*/cli/php.ini
+
+  sed 's/upload_max_filesize = 2M/upload_max_filesize = 2G/g' /etc/php/*.*/fpm/php.ini
+  sed 's/upload_max_filesize = 2M/upload_max_filesize = 2G/g' /etc/php/*.*/apache2/php.ini
+  sed 's/upload_max_filesize = 2M/upload_max_filesize = 2G/g' /etc/php/*.*/cli/php.ini
+
+  sed 's|;date.timezone =|date.timezone = America/Chicago|g' /etc/php/*.*/fpm/php.ini
+  sed 's|;date.timezone =|date.timezone = America/Chicago|g' /etc/php/*.*/apache2/php.ini
+  sed 's|;date.timezone =|date.timezone = America/Chicago|g' /etc/php/*.*/cli/php.ini
 }
 apache_install() {
-    apt install apache2 apache2-utils -y
-    systemctl enable apache2 && systemctl start apache2
-    echo "ServerName localhost">>/etc/apache2/conf-available/servername.conf
-    a2enconf servername.conf
-    sed -i 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf
-    sed -i 's/DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm/DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm/g' /etc/apache2/mods-available/dir.conf
-    systemctl reload apache2
-    mkdir /var/www/${DOMAIN}
-    chown www-data:www-data /var/www/${DOMAIN} -R
-    cat << _EOF_ > /etc/apache2/site-available/"${DOMAIN}".conf
+  clear
+  echo "**** Configuring Apache Web Server ****"
+  sleep 2
+  apt install apache2 apache2-utils -y
+# Enable Apache Modules
+  a2enmod ssl headers rewrite
+# Make a new webroot directory
+  mkdir /var/www/${DOMAIN}
+# Change the owner of the web root directory to the WebServer user
+  chown www-data:www-data /var/www/${DOMAIN} -R
+# Remove Indexing of the web root directory
+  sed 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf
+# Create a new Virtual Host file
+cat << EOF > /etc/apache2/sites-available/${DOMAIN}.conf
 <VirtualHost *:80>
-    ServerName "${DOMAIN}"
-    ServerAlias www."${DOMAIN}"
-    ServerAdmin admin@"${DOMAIN}"
-    
-    DocumentRoot /var/www/"${DOMAIN}"
-    
-    ErrorLog "${APACHE_LOG_DIR}"/"${DOMAIN}"_error.log
-    CustomLog "${APACHE_LOG_DIR}"/"${DOMAIN}"_access.log combined
+    ServerName ${domain}
+    ServerAlias www.${domain}
+
+    ServerAdmin webmaster@${domain}
+    DocumentRoot /var/www/${domain}
+
+    ErrorLog ${APACHE_LOG_DIR}/${domain}_error.log
+    CustomLog ${APACHE_LOG_DIR}/${domain}_access.log combined
 </VirtualHost>
-_EOF_
-    a2ensite "${DOMAIN}".conf
-    systemctl reload apache2
-}
-vhost() {
-cat << _EOF_ > /var/www/"${DOMAIN}"/index.html
+EOF
+# Enable New Site
+a2ensite ${DOMAIN}.conf
+# Disable default site
+a2dissite 000-default.conf
+# Create an index.html page
+cat << EOF > /var/www/${domain}/index.html
+<style>
+body { font-family: 'Montserrat', sans-serif;}
+a { text-decoration: none; transition: 0.3s;}
+a:hover { color: #000000;}
+</style>
 <!DOCTYPE html>
 <html lang="en">
 <html>
@@ -48,30 +92,95 @@ cat << _EOF_ > /var/www/"${DOMAIN}"/index.html
 <!-- GOOGLE FONTS -->
   <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;1,100&display=swap" rel="stylesheet">
-<!-- FONT AWESOME -->
-  <script src="https://kit.fontawesome.com/15db5bdf81.js" crossorigin="anonymous"></script>
-<!-- W3 CSS -->
-<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-<title>"${DOMAIN}"</title>
+<title>| DEFAULT PAGE |</title>
 </head>
 <body>
-<center><h2>Welcome to "${DOMAIN}"</h2></center>
-<p>This page was generated automatically by the <a href="https://github.com/ryanc410/server-setup/script.sh">Server Setup Script</a></p>
-
+<center><h2>This page was generated by the <a href="10.0.0.143/scripts/server-setup.sh">Server Setup script.</a></h2></center>
+<center><h3>Your Web Server was configured correctly!</h3></center>
 
 </body>
 </html>
-_EOF_
+EOF
+systemctl reload apache2
 }
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        echo "Run it as root..."
-        sleep 2
-        exit 3
-    fi
+ssh_secure() {
+  clear
+   echo "**** Configuring SSH Server ****"
+   sleep 2
+# Copy the sshd_config file before we make changes
+  cp "$SSH" /etc/ssh/sshd_config.bak
+# Add new group to allow ssh login
+  addgroup allowssh
+# Add allowssh group to sshd_config
+  echo "AllowGroups allowssh">>"$SSH"
+# Change SSH port
+  echo "Enter a port number to use for logging in via SSH:"
+  read ssh_port
+  # Change SSH Port
+sed -i 's/#Port 22/Port $ssh_port/g' "$SSH"
+  echo ""
+# Disable PasswordAuthentication
+  echo "Password Authentication should be disabled for security purposes."
+  echo "Do you wish to disable Password Authentication for SSH?"
+  read pass_auth
+  case $pass_auth in
+    y|Y|yes|Yes)
+      # Disallow password login via ssh
+      sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' "$SSH"
+      ;;
+    n|N|no|No)
+      ;;
+  esac
+# Add new SSH user
+  echo "For security purposes you should have a new user to run commands with sudo."
+  echo "Enter a new Username:"
+  read ssh_user
+  egrep "^$ssh_user" /etc/passwd >/dev/null
+  if [[ $? -eq 0 ]]; then
+    echo "Username already exists!"
+    exit 1
+  else
+    echo "Enter the password to use with $ssh_user:"
+    read ssh_pass
+    pass=$(perl -e 'print crypt($ARGV[0]. "password")' $ssh_pass)
+    useradd -m -p "$pass" "$ssh_user"
+    [ $? -eq 0 ] && echo "User has been added to the system!" || echo "Failed to add new user!"
+  fi
+  usermod -a -G allowssh $ssh_user
+  usermod -a -G sudo $ssh_user
 }
-check_root 
-apt update && apt upgrade -y
-apache_install
-php_install
-vhost
+timezone() {
+    clear
+   echo "**** Configuring Timezone ****"
+   sleep 2
+  echo "Enter the timezone:"
+  read tz
+  timedatectl set-timezone $tz
+  apt install ntp -y
+  cat << EOF >> /etc/ntp.conf
+server 0.us.pool.ntp.org
+server 1.us.pool.ntp.org
+server 2.us.pool.ntp.org
+server 3.us.pool.ntp.org
+EOF
+# Restart Time Service
+service ntp restart
+}
+mysql_install() {
+    clear
+   echo "**** Configuring Mysql Server ****"
+   sleep 2
+   apt install mysql-server -Y
+  echo "Enter a password for the Database root user:"
+  mysql_pass
+  mysql -u root <<-EOF
+UPDATE mysql.user SET PASSWORD=PASSWORD('$mysql_pass') WHERE USER='root';
+DELETE FROM mysql.user WHERE USER='root' AND HOST NOT IN ('localhost', '127.0.0.1', '::1');
+DELETE FROM mysql.user WHERE USER='';
+DELETE FROM mysql.db WHERE DB='test' OR DB='test_%';
+FLUSH PRIVILEGES;
+EOF
+# Start and enable mysql-server to run on boot
+systemctl enable mysql-server && systemctl start mysql-server
+}
+apache_install && php_install && mysql_install && timezone
