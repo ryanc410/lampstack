@@ -41,7 +41,7 @@ help()
    echo "1. Open the setup.sh file in nano or your preferred text editor."
    echo "2. Fill in the variables with how you want the server to be configured."
    echo "3. Save and exit."
-   echo "4. Run command: chmod +x apache.sh"
+   echo "4. Run command: chmod +x setup.sh"
    echo "5. If you opted Y for the ssl variable, make sure you have the appropriate DNS records set for your domain:"
    echo " A Record        @        IN        IP-ADDRESS-OF-SERVER"
    echo " A Record       www       IN        IP-ADDRESS-OF-SERVER"
@@ -247,6 +247,25 @@ systemctl reload apache2
 
 mkdir -p $web_root
 chown www-data:www-data $web_root -R
+
+cat <<_EOF_>>$web_root/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title></title>
+</head>
+<body style="background-color: #000000;">
+<center><h2 style="color: #ffffff;">Apache is Working!</h2></center>
+<br>
+<br>
+<center><h4 style="color: #ffffff;">This Web server was configured automatically using the Apache Web Server Install Script</h4></center>
+<center><p style="color: lime-green">git clone https://github.com/ryanc410/server-setup.git <strong>Clone the Repository</strong></p></center>
+<center><p style="color: lime-green">nano apache.sh <strong>Set the variables</strong></p>
+<center><p style="color: lime-green;">chmod +x apache.sh <strong>Make executable</strong></p></center>
+<center><p style="color: lime-green;">./apache.sh <strong>Run the script</strong></p></center>
+</body>
+</html>
+_EOF_
 
 sed -i 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf
 
