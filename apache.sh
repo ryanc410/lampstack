@@ -41,7 +41,7 @@ help()
    echo "1. Open the setup.sh file in nano or your preferred text editor."
    echo "2. Fill in the variables with how you want the server to be configured."
    echo "3. Save and exit."
-   echo "4. Run command: chmod +x setup.sh"
+   echo "4. Run command: chmod +x apache.sh"
    echo "5. If you opted Y for the ssl variable, make sure you have the appropriate DNS records set for your domain:"
    echo " A Record        @        IN        IP-ADDRESS-OF-SERVER"
    echo " A Record       www       IN        IP-ADDRESS-OF-SERVER"
