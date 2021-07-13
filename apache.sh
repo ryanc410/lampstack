@@ -150,7 +150,7 @@ ssl_install()
     chgrp www-data /var/lib/letsencrypt
     chmod g+s /var/lib/letsencrypt
 
-    cat <<_EOF_>>/etc/apache2/conf-available/letsencrypt.conf
+    cat << _EOF_ >>/etc/apache2/conf-available/letsencrypt.conf
 Alias /.well-known/acme-challenge/ "/var/lib/letsencrypt/.well-known/acme-challenge/"
 <Directory "/var/lib/letsencrypt/">
     AllowOverride None
@@ -159,7 +159,7 @@ Alias /.well-known/acme-challenge/ "/var/lib/letsencrypt/.well-known/acme-challe
 </Directory>
 _EOF_
 
-    cat <<_EOF_>>/etc/apache2/conf-available/ssl-params.conf
+    cat << _EOF_ >>/etc/apache2/conf-available/ssl-params.conf
 SSLProtocol             all -SSLv3 -TLSv1 -TLSv1.1
 SSLCipherSuite          ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
 SSLHonorCipherOrder     off
@@ -179,7 +179,7 @@ _EOF_
     systemctl reload apache2
     certbot certonly --agree-tos --non-interactive --email $admin_email --webroot -w /var/lib/letsencrypt/ -d $domain -d www.$domain
 
-cat <<_EOF_>>/etc/apache2/sites-available/$domain
+cat << _EOF_ >>/etc/apache2/sites-available/$domain
 <VirtualHost $ip:443>
   ServerName $domain
 
@@ -227,7 +227,7 @@ a2enconf servername.conf
 
 systemctl reload apache2
 
-cat <<_EOF_>>/etc/apache2/sites-available/$domain
+cat << _EOF_ >>/etc/apache2/sites-available/$domain
 <VirtualHost $ip:80>
     ServerName $domain
     ServerAlias www.$domain
@@ -248,7 +248,7 @@ systemctl reload apache2
 mkdir -p $web_root
 chown www-data:www-data $web_root -R
 
-cat <<_EOF_>>$web_root/index.html
+cat << _EOF_ >>$web_root/index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
