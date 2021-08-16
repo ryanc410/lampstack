@@ -15,7 +15,6 @@ domain=
 ip=
 admin_email=
 web_root=
-#framework=
 php_ver=
 php_memory_limit=
 php_max_upload_size=
@@ -56,8 +55,6 @@ help()
    echo "admin_email=admin@example.com"
    echo ""
    echo "web_root=/var/www/html/example.com"
-   echo ""
-   echo "framework=(Bootstrap),(UI Kit),(Materialize),(Foundation)"
    echo ""
    echo "php_ver=(7.3),(7.4),(8.0) Earlier versions are no longer supported."
    echo ""
@@ -104,11 +101,6 @@ check_vars()
         echo "You must set the web_root variable."
         sleep 2
         exit 2
-    # elif [[ $framework == "" ]]; then
-    #    clear
-    #    echo "You must set the framework variable."
-    #    sleep 2
-    #    exit 2
     elif [[ $php_ver == "" ]]; then
         clear
         echo "You must set the php_ver variable."
@@ -124,22 +116,6 @@ check_vars()
         echo "You must set the ssl variable."
         exit 2
     fi
-}
-framework_install()
-{
-if [[ $framework == "Bootstrap" ]]; then
-    wget https://familyfileserver.com/index.php/s/aT2AE43ZrYSaQM4 -P $web_root/css/
-    wget https://familyfileserver.com/index.php/s/FP4HbkMPN4qd3bJ -P $web_root/js/
-elif [[ $framework == "UI Kit" ]]; then
-    wget https://familyfileserver.com/index.php/s/NaRMM54wH2H8qjW -P $web_root/css 
-    wget https://familyfileserver.com/index.php/s/GwcTgrae2JKqGz7 -P $web_root/js
-elif [[ $framework == "Materialize" ]]; then
-    wget https://familyfileserver.com/index.php/s/9B8T3gMZ4ikK7qH -P $web_root/css/
-    wget https://familyfileserver.com/index.php/s/yaQYFSSkdzwD3Aw -P $web_root/js/
-elif [[ $framework == "Foundation" ]]; then
-    wget https://familyfileserver.com/index.php/s/kFbq3rqGr8899dw -P $web_root/css
-    wget https://familyfileserver.com/index.php/s/dzoLwPATmPb8Xqs -P $web_root/js
-fi
 }
 ssl_install()
 {
