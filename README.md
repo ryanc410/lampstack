@@ -14,7 +14,9 @@
   </ul>
   <br>
   <u><h2>Scripts</h2></u>
-  <p><strong>PHP-Setup.sh</strong>- Sets these values  in all of the php.ini files with one command: 
+  <p><strong>apache.sh</strong>- Apache Web Server setup script</p>
+  
+  <p><strong>PHP-Setup.sh</strong>- Sets these values  in all of the php.ini files with one command:</p> 
     <ul>
       <li>Increases PHP memory limit</li> 
       <li>Increases max upload file size</li> 
