@@ -14,9 +14,15 @@
   </ul>
   <br>
   <u><h2>Scripts</h2></u>
-  <p><strong>apache.sh</strong>- Apache Web Server setup script</p>
-  
-  <p><strong>PHP-Setup.sh</strong>- Sets these values  in all of the php.ini files with one command:</p> 
+  <u><h2>Apache Web Server setup script</h2></u>
+  <strong>Usage</strong>
+  <p>./apache.sh</p>
+  <p>Open the script and fill in the variables at the top of the script. These variables will determine how your Web Server is configured. For instructions and examples on how they should be filled in, run the script like so:<br>
+./apache.sh -h<br>
+    This will display the help menu.</p>
+  <u><h2>PHP Setup Script</h2></u>
+  <strong>Usage</strong>
+  <p>./php-setup.sh</p>
     <ul>
       <li>Increases PHP memory limit</li> 
       <li>Increases max upload file size</li> 
