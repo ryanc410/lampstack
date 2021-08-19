@@ -203,7 +203,7 @@ a2enconf servername.conf
 
 systemctl reload apache2
 
-cat << _EOF_ >>/etc/apache2/sites-available/$domain
+cat << _EOF_ >>/etc/apache2/sites-available/$domain.conf
 <VirtualHost $ip:80>
     ServerName $domain
     ServerAlias www.$domain
@@ -216,7 +216,7 @@ cat << _EOF_ >>/etc/apache2/sites-available/$domain
 </VirtualHost>
 _EOF_
 
-a2ensite $domain
+a2ensite $domain.conf
 a2dissite 000-default.conf
 
 systemctl reload apache2
