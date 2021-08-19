@@ -155,7 +155,7 @@ _EOF_
     systemctl reload apache2
     certbot certonly --agree-tos --non-interactive --email $admin_email --webroot -w /var/lib/letsencrypt/ -d $domain -d www.$domain
 
-cat << _EOF_ >>/etc/apache2/sites-available/$domain
+cat << _EOF_ >>/etc/apache2/sites-available/$domain.conf
 <VirtualHost $ip:443>
   ServerName $domain
 
@@ -235,10 +235,10 @@ cat << _EOF_ >>$web_root/index.html
 <br>
 <br>
 <center><h4 style="color: #ffffff;">This Web server was configured automatically using the Apache Web Server Install Script</h4></center>
-<center><p style="color: lime-green">git clone https://github.com/ryanc410/server-setup.git <strong>Clone the Repository</strong></p></center>
-<center><p style="color: lime-green">nano apache.sh <strong>Set the variables</strong></p>
-<center><p style="color: lime-green;">chmod +x apache.sh <strong>Make executable</strong></p></center>
-<center><p style="color: lime-green;">./apache.sh <strong>Run the script</strong></p></center>
+<center><p style="color: #ffffff;">git clone https://github.com/ryanc410/server-setup.git <strong>Clone the Repository</strong></p></center>
+<center><p style="color: #ffffff;">nano apache.sh <strong>Set the variables</strong></p>
+<center><p style="color: #ffffff;">chmod +x apache.sh <strong>Make executable</strong></p></center>
+<center><p style="color: #ffffff;">./apache.sh <strong>Run the script</strong></p></center>
 </body>
 </html>
 _EOF_
@@ -278,8 +278,6 @@ sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/$
 sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/$php_ver/cli/php.ini
 
 systemctl reload apache2 && systemctl reload php$php_ver-fpm
-
-# framework_install
 
 if [[ $ssl == "Y" ]]; then
     ssl_install
