@@ -224,7 +224,9 @@ systemctl reload apache2
 mkdir -p $web_root
 chown www-data:www-data $web_root -R
 
-cat << _EOF_ >>$web_root/index.html
+sed -i 's/DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm/DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf
+
+cat << _EOF_ > $web_root/index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -252,30 +254,6 @@ a2dismod php$php_ver
 a2enconf php$php_ver-fpm
 
 systemctl enable php$php_ver-fpm && systemctl start php$php_ver-fpm
-
-sed -i "s/memory_limit = 128M/memory_limit = $php_memory_limit/g" /etc/php/$php_ver/fpm/php.ini
-sed -i "s/memory_limit = 128M/memory_limit = $php_memory_limit/g" /etc/php/$php_ver/cli/php.ini
-
-sed -i "s/upload_max_filesize = 2M/upload_max_filesize = $php_max_upload_size/g" /etc/php/$php_ver/fpm/php.ini
-sed -i "s/upload_max_filesize = 2M/upload_max_filesize = $php_max_upload_size/g" /etc/php/$php_ver/cli/php.ini
-
-sed -i "s|;date.timezone =|date.timezone = $timezone|g" /etc/php/$php_ver/fpm/php.ini
-sed -i "s|;date.timezone =|date.timezone = $timezone|g" /etc/php/$php_ver/cli/php.ini
-
-sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/$php_ver/fpm/php.ini
-sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/$php_ver/cli/php.ini
-
-sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/$php_ver/fpm/php.ini
-sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/$php_ver/cli/php.ini
-
-sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/$php_ver/fpm/php.ini
-sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/$php_ver/cli/php.ini
-
-sed -i "s/mysqli.default_user =/mysqli.default_user = $mysql_user/g" /etc/php/$php_ver/fpm/php.ini
-sed -i "s/mysqli.default_user =/mysqli.default_user = $mysql_user/g" /etc/php/$php_ver/cli/php.ini
-
-sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/$php_ver/fpm/php.ini
-sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/$php_ver/cli/php.ini
 
 systemctl reload apache2 && systemctl reload php$php_ver-fpm
 
