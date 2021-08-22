@@ -16,10 +16,6 @@ ip=
 admin_email=
 web_root=
 php_ver=
-php_memory_limit=
-php_max_upload_size=
-mysql_user=
-mysql_user_pass=
 timezone=
 ssl=
 
@@ -66,7 +62,8 @@ help()
    echo ""
    echo "mysql_user_pass=bobs-password"
    echo ""
-   echo "timezone=America/Chicago"
+   echo "timezone=Country/City format"
+   echo "Sets the server default timezone."
    echo ""
    echo "ssl=(Y),(N) If set to Y, a lets encrypt certificate will be installed for the specified domain."
 }
