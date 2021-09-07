@@ -2,7 +2,7 @@
 
 DOMAIN=$(hostname -f)
 
-apt install postfix mail-utils -y
+apt install postfix mailutils -y
 
 postconf -f "myhostname = sendonly.$DOMAIN"
 
