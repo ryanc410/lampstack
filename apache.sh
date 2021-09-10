@@ -71,12 +71,9 @@ SSLProtocol             all -SSLv3 -TLSv1 -TLSv1.1
 SSLCipherSuite          ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
 SSLHonorCipherOrder     off
 SSLSessionTickets       off
-
 SSLUseStapling On
 SSLStaplingCache "shmcb:logs/ssl_stapling(32768)"
-
 SSLOpenSSLConfCmd DHParameters "/etc/ssl/certs/dhparam.pem" 
-
 Header always set Strict-Transport-Security "max-age=63072000"
 _EOF_
 
@@ -85,35 +82,23 @@ _EOF_
 
     systemctl reload apache2 
 
-    certbot certonly --agree-tos --non-interactive --email $admin_email --webroot -w /var/lib/letsencrypt/ -d $domain -d www.$domain 
+    certbot certonly --agree-tos --non-interactive --email "$admin_email" --webroot -w /var/lib/letsencrypt/ -d "$domain" -d "www.$domain" 
 
-cat << _EOF_ >>/etc/apache2/sites-available/$domain.conf 
+cat << _EOF_ >>/etc/apache2/sites-available/"$domain".conf 
 <VirtualHost $ip:443>
   ServerName $domain
-
   Protocols h2 http/1.1
-
   <If "%{HTTP_HOST} == 'www.$domain'">
     Redirect permanent / https://$domain/
   </If>
-
   DocumentRoot /var/www/$domain
   ErrorLog /var/log/apache2/$domain-error.log
   CustomLog /var/log/apache2/$domain-access.log combined
-
   SSLEngine On
   SSLCertificateFile /etc/letsencrypt/live/$domain/fullchain.pem
   SSLCertificateKeyFile /etc/letsencrypt/live/$domain/privkey.pem
 </VirtualHost>
 _EOF_
-}
-header()
-{
-    clear
-    echo "##################################################"
-    echo "#     Apache Web Server Configuration Script     #"
-    echo "##################################################"
-    echo ""
 }
 
 #####################################
@@ -147,57 +132,63 @@ while getopts ":hd:i:e:p:s" option; do
             sleep 3
             exit 2
             ;;
+        *)
+            echo "$option was not a valid choice!"
+            sleep 3
+            exit 1
+            ;;
    esac
 done
 
-# Checks to make sure script is ran with root privileges
 check_root
-
-header
-
 
 apt update && apt upgrade -y 
 
-
 apt install apache2 apache2-utils -y 
 
-
 systemctl enable apache2 && systemctl start apache2 
-
 
 echo "ServerName localhost">>/etc/apache2/conf-available/servername.conf 
 a2enconf servername.conf 
 
 systemctl reload apache2 
 
+if [[ $domain == '' ]]; then
+    domain=$(hostname -f)
+fi
 
-cat << _EOF_ >>/etc/apache2/sites-available/$domain.conf 
+if [[ $ip == '' ]]; then
+    ip=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1')
+fi
+
+if [[ $admin_email == '' ]]; then
+    admin_email=admin@localhost
+fi
+cat << _EOF_ >>/etc/apache2/sites-available/"$domain".conf 
 <VirtualHost $ip:80>
     ServerName $domain
     ServerAlias www.$domain
     ServerAdmin $admin_email
-
     DocumentRoot /var/www/$domain
-
     ErrorLog ${APACHE_LOG_DIR}/$domain-error.log
     CustomLog ${APACHE_LOG_DIR}/$domain-access.log combined
 </VirtualHost>
 _EOF_
 
 
-a2ensite $domain.conF 
+a2ensite "$domain".conf 
 a2dissite 000-default.conf 
 
 systemctl reload apache2 
 
 
-mkdir -p /var/www/$domain 
-chown www-data:www-data /var/www/$domain -R 
+mkdir -p /var/www/"$domain" 
+chown www-data:www-data /var/www/"$domain" -R 
 
 sed -i 's/DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm/DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf 
 
 
-cat << _EOF_ > /var/www/$domain/index.html 
+cat << _EOF_ > /var/www/"$domain"/index.html 
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -218,21 +209,20 @@ _EOF_
 sed -i 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf 
 
 
-if [[ $php_ver == "8.0" ]]; then
-    apt install software-properties-common -y 
-    add-apt-repository ppa:ondrej/php -y 
-    apt update $quiet
-fi
-apt install php$php_ver php$php_ver-cli php$php_ver-fpm php$php_ver-mysql -y 
+apt install software-properties-common -y 
+add-apt-repository ppa:ondrej/php -y 
+apt update 
+
+apt install php"$php_ver" php"$php_ver"-cli php"$php_ver"-fpm php"$php_ver"-mysql -y 
 
 a2enmod proxy_fcgi setenvif 
-a2dismod php$php_ver 
-a2enconf php$php_ver-fpm 
+a2dismod php"$php_ver" 
+a2enconf php"$php_ver"-fpm 
 
 
-systemctl enable php$php_ver-fpm && systemctl start php$php_ver-fpm 
+systemctl enable php"$php_ver"-fpm && systemctl start php"$php_ver"-fpm 
 
-systemctl reload apache2 && systemctl reload php$php_ver-fpm 
+systemctl reload apache2 && systemctl reload php"$php_ver"-fpm 
 
 if [[ $ssl == "TRUE" ]]; then
     ssl_install
