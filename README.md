@@ -16,8 +16,16 @@
   <u><h2>Scripts</h2></u>
   <u><h2>Apache Web Server setup script</h2></u>
   <strong>Usage</strong>
-  <p>./apache.sh</p>
-  <p>Open the script and fill in the variables at the top of the script. These variables will determine how your Web Server is configured. For instructions and examples on how they should be filled in, run the script like so:<br>
+  <strong><p>./apache.sh -d DOMAIN.COM</p></strong><br>
+  <p>Use -d when invoking the script to set the Domain name for your server.</p><br>
+  <strong><p>./apache -i IP_ADDRESS</strong></p><br>
+  <p>Using -i you can set your server's IP Address. The script uses this when creating the virtual host files.</p><br>
+ <strong><p>./apache -e ADMIN@EXAMPLE.COM</strong></p><br>
+  <p>Sets the admin email address. Used in virtual host files and generating the Lets Encrypt SSL</p><br>
+  <strong><p>./apache -p 8.0</strong></p><br>
+  <p>Tells the script what version of PHP you want installed.</p><br>
+  <strong><p>./apache -s</strong></p><br>
+  <p>Use -s if you want a Lets Encrypt SSL for your domain</p><br>
 ./apache.sh -h<br>
     This will display the help menu.</p>
   <u><h2>PHP Setup Script</h2></u>
