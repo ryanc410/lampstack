@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #####################################
 # APACHE SERVER SETUP SCRIPT
 #####################################
 # Author: Ryan Cook
 # https://github.com/ryanc410
 # ryanhtown713@outlook.com
+# Version 1.0.2
 # 09/04/2021
-#
 #####################################
 # FUNCTIONS
 #####################################
@@ -84,21 +84,31 @@ _EOF_
 
     certbot certonly --agree-tos --non-interactive --email "$admin_email" --webroot -w /var/lib/letsencrypt/ -d "$domain" -d "www.$domain" 
 
-cat << _EOF_ >>/etc/apache2/sites-available/"$domain".conf 
+cat <<- _EOF_ >>/etc/apache2/sites-available/"$domain".conf
+SSLStaplingCache shmcb:/tmp/stapling_cache(128000) 
 <VirtualHost $ip:443>
-  ServerName $domain
-  Protocols h2 http/1.1
-  <If "%{HTTP_HOST} == 'www.$domain'">
-    Redirect permanent / https://$domain/
-  </If>
-  DocumentRoot /var/www/$domain
-  ErrorLog /var/log/apache2/$domain-error.log
-  CustomLog /var/log/apache2/$domain-access.log combined
-  SSLEngine On
-  SSLCertificateFile /etc/letsencrypt/live/$domain/fullchain.pem
-  SSLCertificateKeyFile /etc/letsencrypt/live/$domain/privkey.pem
+        Protocols h2 http/1.1
+        ServerName $domain
+    
+        Redirect permanent / https://$domain/
+
+        DocumentRoot /var/www/$domain
+
+        ErrorLog ${APACHE_LOG_DIR}/$domain-error.log
+        CustomLog ${APACHE_LOG_DIR}/$domain-access.log combined
+
+        SSLEngine On
+        SSLCertificateFile /etc/letsencrypt/live/$domain/fullchain.pem
+        SSLCertificateKeyFile /etc/letsencrypt/live/$domain/privkey.pem
+
+        SSLCACertificateFile /etc/ssl/ca-certs.pem
+        SSLUseStapling on
 </VirtualHost>
 _EOF_
+
+wget -O - https://www.digicert.com/CACerts/DigiCertHighAssuranceEVRootCA.crt | openssl x509 -inform DER -outform PEM | tee -a /etc/ssl/ca-certs.pem> /dev/null
+wget -O - https://www.digicert.com/CACerts/DigiCertHighAssuranceEVCA-1.crt | openssl x509 -inform DER -outform PEM | tee -a /etc/ssl/ca-certs.pem> /dev/null
+ 
 }
 
 #####################################
@@ -164,14 +174,16 @@ fi
 if [[ $admin_email == '' ]]; then
     admin_email=admin@localhost
 fi
-cat << _EOF_ >>/etc/apache2/sites-available/"$domain".conf 
+cat <<- _EOF_ >>/etc/apache2/sites-available/"$domain".conf 
 <VirtualHost $ip:80>
-    ServerName $domain
-    ServerAlias www.$domain
-    ServerAdmin $admin_email
-    DocumentRoot /var/www/$domain
-    ErrorLog ${APACHE_LOG_DIR}/$domain-error.log
-    CustomLog ${APACHE_LOG_DIR}/$domain-access.log combined
+        ServerName $domain
+        ServerAlias www.$domain
+        ServerAdmin $admin_email
+
+        DocumentRoot /var/www/$domain
+
+        ErrorLog ${APACHE_LOG_DIR}/$domain-error.log
+        CustomLog ${APACHE_LOG_DIR}/$domain-access.log combined
 </VirtualHost>
 _EOF_
 
@@ -213,7 +225,7 @@ apt install software-properties-common -y
 add-apt-repository ppa:ondrej/php -y 
 apt update 
 
-apt install php"$php_ver" php"$php_ver"-cli php"$php_ver"-fpm php"$php_ver"-mysql -y 
+apt install php"$php_ver"-{cli,fpm,opcache,xml,mysql,intl,mbstring} libapache2-mod-php"$php_ver" -y 
 
 a2enmod proxy_fcgi setenvif 
 a2dismod php"$php_ver" 
