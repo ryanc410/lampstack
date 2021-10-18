@@ -64,6 +64,9 @@ while [[ $# > 0 ]]
  				WEBROOT="$2"
  				shift
  				;;
+			-v|--version)
+				echo "apache.sh Version 2.0"
+				;;
  			--help|*)
 				usage
  				;;
@@ -75,6 +78,7 @@ checkroot
 
 checkos
 
+clear
 echo "Updating repositories and upgrading packages..."
 apt update &>/dev/null && apt upgrade -y &>/dev/null  
 
