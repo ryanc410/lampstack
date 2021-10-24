@@ -1,145 +1,150 @@
-#!/bin/bash
-#
-#
-#
-#
-#####################################
-# VARIABLES
-#####################################
-
-mem_limit=
-upload_size=
-tz=
-mysql_user=
-mysql_user_pass=
-
-#####################################
-# FUNCTIONS
-#####################################
-
-help()
-{
-   clear
-   echo "##############################################"
-   echo "#        PHP.INI Configuration Script        #"            
-   echo "##############################################"
-   echo
-   echo "Author: Ryan Cook"
-   echo "Date Modified: 07/12/2021"
-   echo 
-   echo "Before Running the script, you must set the variables to values that reflect how you want PHP to be configured."
-   echo 
-   echo "Examples:"
-   echo 
-   echo "mem_limit= This value represents the memory limit that is allocated to PHP scripts.Correct values can be 128M, 512M.. etc."
-   echo "upload_size= This value is the allowed size of a file to be uploaded using PHP."
-   echo "tz= This is your timezone. Format is America/Chicago."
-   echo "mysql_user= This is a user that you will use for database connections using php."
-   echo "mysql_user_pass= The password for the mysql user used for database connections using php."
-   echo
-}
+#!/usr/bin/env bash
+#******************************************************************
+## SCRIPT NAME: php-setup.sh
+## AUTHOR: Ryan Cook
+## DATE: 10/24/2021
+## DESCRIPTION: Installs and configures PHP
+#******************************************************************
+## VARIABLES
+#******************************************************************
+PHP_VERSION=
+TIME_ZONE=
+INCLUDE_DIR=
+RETVAL=$?
+#******************************************************************
+## FUNCTIONS
+#******************************************************************
 check_root()
 {
-    if [[ $EUID -ne 0 ]]; then
-        clear
-        echo "Script must be ran with root privileges.."
-        sleep 2
+    if [[ $EUID != 0 ]]; then
+        echo "ERROR: Script needs root privileges to run..."
+        sleep 3
         exit 1
     fi
 }
-check_mods()
+check_os()
 {
-    clear
-    echo "Checking for Apache2 PHP module.."
-    sleep 1
-    dpkg --list | grep libapache2-mod-php*.* &>/dev/null
-        if [[ $? -ne 0 ]]; then
-            echo "Module not found, Installing now.."
-            sleep 1
-            apt install libapache2-mod-php -y &>/dev/null
-            echo "Module Installed.."
-            sleep 1
-        fi
-    
-    echo "Checking for PHP-FPM module.."
-    sleep 1
-    dpkg --list | grep php*.*-fpm &>/dev/null
-        if [[ $? -ne 0 ]]; then
-            echo "Module not found, Installing now.."
-            sleep 1
-            apt install php-fpm -y &>/dev/null
-            echo "Module Installed.."
-            sleep 1
-        fi
-    echo "Checking for PHP-CLI module.."
-    sleep 1    
-    dpkg --list | grep php*.*-cli &>/dev/null
-        if [[ $? -ne 0 ]]; then
-            echo "Module not found, Installing now.."
-            sleep 1
-            apt install php-cli -y &>/dev/null
-            echo "Module Installed.."
-            sleep 1
-        fi
-}
-
-#####################################
-# SCRIPT
-#####################################
-
-while getopts ":h" option; do
-   case $option in
-      h)
-         help
-         exit;;
-   esac
-done
-
-check_root
-
-check_mods
-
-command -v mysql &>/dev/null
-    if [[ $? -ne 0 ]]; then
-        echo "Mysql Server not installed. Installing now.."
-        sleep 1
-        apt install mysql-server -y &>/dev/null
-        echo "Mysql Server Installed."
-        sleep 1
+    if [[ $OSTYPE != linux-gnu ]]; then
+        echo "ERROR: Script not compatible with your Operating System..."
+        sleep 3
+        exit 2
     fi
+}
+install_ppa()
+{
+    add-apt-repository ppa:ondrej/php -y >/dev/null
+    apt update >/dev/null
+}
+config_php()
+{
+    # Set Timezone
+    sed -i "s|;date.timezone =|date.timezone = $TIME_ZONE|g" /etc/php/"$PHP_VERSION"/fpm/php.ini
+    sed -i "s|;date.timezone =|date.timezone = $TIME_ZONE|g" /etc/php/"$PHP_VERSION"/cli/php.ini
+    sed -i "s|;date.timezone =|date.timezone = $TIME_ZONE|g" /etc/php/"$PHP_VERSION"/apache2/php.ini
+    # Set Sendmail Path
+    sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/"$PHP_VERSION"/fpm/php.ini
+    sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/"$PHP_VERSION"/cli/php.ini
+    sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/"$PHP_VERSION"/apache2/php.ini
+    # Set Default Mysql Socket
+    sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/"$PHP_VERSION"/fpm/php.ini
+    sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/"$PHP_VERSION"/cli/php.ini
+    sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/"$PHP_VERSION"/apache2/php.ini
+    # Set Default Mysql Host
+    sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/"$PHP_VERSION"/fpm/php.ini
+    sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/"$PHP_VERSION"/cli/php.ini
+    sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/"$PHP_VERSION"/apache2/php.ini
+    # Set Include Directory
+    sed -i "s|;include_path = ".:/usr/share/php"|include_path = $INCLUDE_DIR|g" /etc/php/"$PHP_VERSION"/fpm/php.ini
+    sed -i "s|;include_path = ".:/usr/share/php"|include_path = $INCLUDE_DIR|g" /etc/php/"$PHP_VERSION"/cli/php.ini
+    sed -i "s|;include_path = ".:/usr/share/php"|include_path = $INCLUDE_DIR|g" /etc/php/"$PHP_VERSION"/apache2/php.ini
+}
+check_version()
+{
+    case "$PHP_VERSION" in
+    8.0|8)
+        PHP_VERSION=8.0
+        ;;
+    7.4)
+        PHP_VERSION=7.4
+        ;;
+    7.3)
+        PHP_VERSION=7.3
+        ;;
+    *)
+        echo "ERROR: You entered a version number not supported by this script."
+        sleep 2
+        exit 3
+        ;;
+esac
+}
+#******************************************************************
+## SCRIPT
+#******************************************************************
 
+check_root && check_os
 
-sed -i "s/memory_limit = 128M/memory_limit = $mem_limit/g" /etc/php/7.4/fpm/php.ini
-sed -i "s/memory_limit = 128M/memory_limit = $mem_limit/g" /etc/php/7.4/cli/php.ini
-sed -i "s/memory_limit = 128M/memory_limit = $mem_limit/g" /etc/php/7.4/apache2/php.ini
+case "$1" in
+	-v|--version)
+        PHP_VERSION="$2"
+        check_version
+        shift
+        ;;
+    -t|--timezone)
+        TIME_ZONE="$2"
+        shift
+        ;;
+    -?|--help)
+		help_menu
+		;;
+	*)
+	  echo "ERROR: Unrecognized argument"
+	  sleep 2
+	  exit 5
+	  ;;
+esac
 
-sed -i "s/upload_max_filesize = 2M/upload_max_filesize = $upload_size/g" /etc/php/7.4/fpm/php.ini
-sed -i "s/upload_max_filesize = 2M/upload_max_filesize = $upload_size/g" /etc/php/7.4/cli/php.ini
-sed -i "s/upload_max_filesize = 2M/upload_max_filesize = $upload_size/g" /etc/php/7.4/apache2/php.ini
+if [[ -z $PHP_VERSION ]]; then
+    PHP_VERSION=8.0
+elif [[ -z $INCLUDE_DIR ]]; then
+    INCLUDE_DIR=/etc/php/includes
+elif [[ -z $TIME_ZONE ]]; then
+    TIME_ZONE=UTC
+fi
 
-sed -i "s|;date.timezone =|date.timezone = $tz|g" /etc/php/7.4/fpm/php.ini
-sed -i "s|;date.timezone =|date.timezone = $tz|g" /etc/php/7.4/cli/php.ini
-sed -i "s|;date.timezone =|date.timezone = $tz|g" /etc/php/7.4/apache2/php.ini
+echo "Updating server packages..."
+apt update >/dev/null && apt upgrade -y >/dev/null
 
-sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/7.4/fpm/php.ini
-sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/7.4/cli/php.ini
-sed -i 's|;sendmail_path =|sendmail_path = /usr/sbin/sendmail|g' /etc/php/7.4/apache2/php.ini
+echo "Installing required packages..."
+apt install software-properties-common -y >/dev/null
 
-sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/7.4/fpm/php.ini
-sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/7.4/cli/php.ini
-sed -i 's|mysqli.default_socket =|mysqli.default_socket = /var/run/mysqld/mysqld.sock|g' /etc/php/7.4/apache2/php.ini
+echo "Installing PHP PPA..."
+install_ppa
 
-sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/7.4/fpm/php.ini
-sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/7.4/cli/php.ini
-sed -i 's/mysqli.default_host =/mysqli.default_host = localhost/g' /etc/php/7.4/apache2/php.ini
+echo "Installing PHP and PHP modules..."
+apt install php"$PHP_VERSION"-{fpm,cli,xml,curl,opcache,mbstring,intl,gd,mysql,zip} libapache2-mod-php"$PHP_VERSION" -y >/dev/null
 
-sed -i "s/mysqli.default_user =/mysqli.default_user = $mysql_user/g" /etc/php/7.4/fpm/php.ini
-sed -i "s/mysqli.default_user =/mysqli.default_user = $mysql_user/g" /etc/php/7.4/cli/php.ini
-sed -i "s/mysqli.default_user =/mysqli.default_user = $mysql_user/g" /etc/php/7.4/apache2/php.ini
+config_php
 
-sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/7.4/fpm/php.ini
-sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/7.4/cli/php.ini
-sed -i "s/mysqli.default_pw =/mysqli.default_pw = $mysql_user_pass/g" /etc/php/7.4/apache2/php.ini
+apachectl -t >/dev/null
+if [[ $RETVAL = 0 ]]; then
+    echo "Enabling Apache modules for PHP-fpm..."
+    a2enmod proxy_fcgi setenvif >/dev/null
+    a2enconf php"$PHP_VERSION"-fpm >/dev/null
+fi
+
+echo "Enabling PHP-FPM to run at system boot..."
+systemctl enable php"$PHP_VERSION"-fpm >/dev/null && systemctl start php"$PHP_VERSION"-fpm >/dev/null
+
+systemctl status php"$PHP_VERSION"-fpm >/dev/null
+if [[ $RETVAL = 0 ]]; then
+    echo "PHP has been configured successfully!"
+    sleep 3
+    exit 0
+else
+    echo "ERROR: There was a problem installing PHP..."
+    sleep 3
+    exit 1
+fi
 
 systemctl reload apache2 && systemctl reload php*.*-fpm
 echo "Script Complete"
