@@ -3,15 +3,14 @@
 ## SCRIPT NAME: apachessl.sh
 ## AUTHOR: Ryan Cook
 ## DATE: 10/20/2021
-## VERSION: 1.0
+## VERSION: 2.0
 ## DESCRIPTION: Automatically configures Apache with a Lets Encrypt SSL.
 #----------------------------------------------------------------
 ## VARIABLES
 #----------------------------------------------------------------
-DOMAIN=
-WEBROOT=/var/www/html
+domain=
 APACHE_LOG_DIR=/var/log/apache2
-RETVAL="$?"
+retval="$?"
 #----------------------------------------------------------------
 ## FUNCTIONS
 #----------------------------------------------------------------
@@ -37,52 +36,22 @@ if [[ $EUID != 0 ]]; then
     exit 1
 fi
 }
-check_apache()
-{
-netstat -anp | grep apache | grep 80 &>/dev/null
-    if [[ $RETVAL != 0 ]]; then
-        echo "ERROR: Apache not found on system.."
-        echo "Do you want to install it now?"
-        read -r opt
-        case "$opt" in
-            y|Y|YES|yes|Yes)
-                echo "Installing Apache Web Server.."
-                apt install apache2 apache2-utils -y &>/dev/null
-                systemctl enable apache2 &>/dev/null && systemctl start apache2 &>/dev/null
-                ;;
-            n|N|no|NO|No)
-                echo "Script requires Apache to run. Exiting now.."
-                sleep 2
-                exit 0
-                ;;
-            *)
-                usage
-                ;;
-        esac
-    else
-        echo "Updating Server.."
-        apt update &>/dev/null && apt upgrade -y &>/dev/null
-    fi
-}
-
-
 
 #----------------------------------------------------------------
 ## SCRIPT
 #----------------------------------------------------------------
-
 while [[ $# -gt 0 ]]
 	do
  		case "$1" in
  			-d|--domain)
- 				DOMAIN="$2"
+ 				domain="$2"
  				shift
  				;;
  			--help|*)
 				usage
  				;;
             --v|--version)
-                echo "apachessl.sh V1.0"
+                echo "apachessl.sh V2.0"
                 ;;
  		esac
  	shift
@@ -90,19 +59,28 @@ done
 
 check_root
 
-check_apache
+echo "Checking Apache Web Server is installed.."
+sleep 1
+netstat -anp | grep apache | grep 80 &>/dev/null
+if [[ $retval != 0 ]]; then
+    echo "ERROR: This script needs the Apache Web Server to function."
+    sleep 3
+    exit 1
+fi
 
-if [[ -z $DOMAIN ]]; then
-    DOMAIN=$(hostname -f)
+if [[ -z $domain ]]; then
+    echo "No Domain was specified on execution."
+    sleep 3
+    exit 1
 fi
 
 echo "Enabling Apache Modules.."
 sleep 1
-a2enmod ssl headers http2 &>/dev/null
+a2enmod ssl headers http2
 
 echo "Installing Certbot.."
 sleep 1
-apt install certbot -y &>/dev/null
+apt install certbot -y
 
 echo "Generating Diffie Helman.."
 openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048 &>/dev/null
@@ -147,7 +125,7 @@ systemctl reload apache2 &>/dev/null
 
 echo "Requesting SSL Certificate.."
 sleep 1
-certbot certonly --agree-tos --non-interactive --email admin@"$DOMAIN" --webroot -w /var/lib/letsencrypt/ -d "$DOMAIN" -d www."$DOMAIN" &>/dev/null
+certbot certonly --agree-tos --non-interactive --email admin@"$domain" --webroot -w /var/lib/letsencrypt/ -d "$domain" -d www."$domain" &>/dev/null
 
 if [[ $RETVAL != 0 ]]; then
     echo "ERROR: SSL Certificate could not be issued.."
@@ -158,22 +136,23 @@ else
     sleep 2
 fi
 
-echo "Appending SSL Configuration in Virtual Host File.."
-cat >> /etc/apache2/sites-available/"$DOMAIN".conf <<- _EOF_
+echo "Creating SSL Virtual Host file.."
+cat > /etc/apache2/sites-available/"$domain"-ssl.conf <<- _EOF_
 <VirtualHost *:443>
     Protocols h2 http/1.1
-    ServerName $DOMAIN
-
-    DocumentRoot $WEBROOT
-
-    ErrorLog ${APACHE_LOG_DIR}/$DOMAIN-error.log
-    CustomLog ${APACHE_LOG_DIR}/$DOMAIN-access.log combined
-
+    ServerName $domain
+    DocumentRoot /var/www/$domain
+    ErrorLog ${APACHE_LOG_DIR}/$domain-error.log
+    CustomLog ${APACHE_LOG_DIR}/$domain-access.log combined
     SSLEngine On
-    SSLCertificateFile /etc/letsencrypt/live/$DOMAIN/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/$DOMAIN/privkey.pem
+    SSLCertificateFile /etc/letsencrypt/live/$domain/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/$domain/privkey.pem
 </VirtualHost>
 _EOF_
+
+echo "Enabling new virtual host.."
+sleep 1
+a2ensite "$domain"-ssl.conf
 
 echo "Restarting Apache to load new configuration.."
 sleep 1
