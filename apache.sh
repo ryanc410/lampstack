@@ -1,153 +1,134 @@
 #!/usr/bin/env bash
-#----------------------------------------------#
-# https://github.com/ryanc410/server-setup.git #
-# DATE: 10/18/2021                             #
-# VERSION: 2.1                                 #
-#----------------------------------------------#
-# FUNCTIONS                                 #
-#-------------------------------------------#
-function usage()
-{
-echo "One click Apache Web Server configuration."
-echo
-echo "Syntax: apache.sh [OPTIONS] [ARGS..]"
-echo "OPTIONS:"
-echo "-d|--domain example.com               Set the Domain for the Virtual Host."
-echo "-s|--ssl                              Configure a Lets Encrypt SSL Certificate for Apache."
-echo "-v|--version                          Print software version and exit."
-echo "-h|--help"
-echo
-}
-#-------------------------------------------#
-# SCRIPT                                    #
-#-------------------------------------------#
-if [[ $EUID != 0 ]]; then
-    echo "Must be root to run this script!"
-    sleep 2
-    exit 1
-fi
+###############################################################
+# SCRIPT: https://github.com/ryanc410/server-setup/apache.sh  #
+# AUTHOR: Ryan Cook                                           #
+# DATE: 10/18/2021                                            #
+# LAST UPDATED: 01/23/2022                                    #
+# VERSION: 3.0                                                #
+# DESCRIPTION: Configure the Apache Web Server                #
+###############################################################
+#     VARIABLES     #
+#####################
+exit_stat=$?
 
-while [[ $# != "" ]]
-do
-case "$1" in
-    -d | --domain )
-        shift
-        domain="$1"
-        ;;
-    -s | -ssl )
-        ssl=true
-        shift
-        ;;
-    -v | --version )
-        echo "apache.sh v2.0"
-        sleep 2
-        exit
-        ;;
-    -h | --help )
-        clear
-        usage
-        exit
-        ;;
-esac
+#####################
+#     FUNCTIONS     #
+#####################
+function title()
+{
+    clear
+    echo "#*************************************#"
+    echo "#     APACHE CONFIGURATION SCRIPT     #"
+    echo "#*************************************#"
+    echo ""
+}
+function usage()
+}
+    clear
+    echo "Script installs Apache and configures a new virtual host."
+    echo
+    echo "Syntax: apache.sh [OPTIONS]"
+    echo "OPTIONS:"
+    echo "-v|--version          Print software version and exit."
+    echo "-h|--help             Show this usage screen."
+    echo
+}
+
+##################
+#     SCRIPT     #
+##################
+while [[ $# > 0 ]]
+    do
+        case "$1" in
+            -h | --help)    usage
+                            shift
+                            exit 0
+                            ;;
+            -v | --version) clear
+                            shift
+                            echo "Apache Configuration Script V3.0"
+                            sleep 5
+                            exit 0
+                            ;;
+        esac
+    done
+title
+echo "This script will automatically install and configure the Apache Web Server."
+sleep 2
+title
+echo "What Domain do you want to associate with this server?"
+read domain_name
+host "$domain_name" &>/dev/null
+while [[ $exit_stat != 0 ]]; do
+    title
+    echo "The Domain you entered, $domain_name, could not be found. Please check the spelling."
+    sleep 3
+    title
+    echo "What Domain do you want to associate with this server?"
+    read domain_name
 done
 
-apt update 
-apt upgrade -y
-apt install apache2 apache2-utils -y
-systemctl start apache2
+title
+echo "The script will now install and configure Apache."
+sleep 2
+echo "Press [ENTER] to begin."
+read
+# Update server packages and repositories
+apt update && apt upgrade -y
+# Install Apache
+apt install apache2 apache2-utils -y &>/dev/null
+# Check to make sure apache was installed
+dpkg -l | grep apache2 &>/dev/null
+if [[ $exit_stat == 0 ]]; then
+    echo "The Apache web server has been installed successfully."
+    sleep 2
+else
+    echo "There was a problem installing Apache."
+    sleep 2
+    exit 2
+fi
+# Enable apache to run on system boot and start apache
 systemctl enable apache2
-cat >> /etc/apache2/conf-available/servername.conf << _EOF_
-ServerName localhost
-_EOF_
+systemctl start apache2 
+# Generate servername.conf to suppress fqdn error
+echo "ServerName localhost">>/etc/apache2/conf-available/servername.conf
+# Enable servername.conf
 a2enconf servername.conf
-chown www-data:www-data /var/www/html -R
-a2dissite 000-default.conf
+# Create Web Root directory
+mkdir /var/www/"$domain_name"
+# Remove directory indexing
 sed -i 's/Options Indexes FollowSymLinks/Options FollowSymLinks/g' /etc/apache2/apache2.conf
-cat >> /etc/apache2/sites-available/"$domain".conf <<- _EOF_
+# Reload apache2
+systemctl reload apache2
+# Disable default virtual host
+a2dissite 000-default.conf
+# Create new Virtual Host
+cat >> /etc/apache2/sites-available/"$domain_name".conf <<-_EOF_
 <VirtualHost *:80>
-    ServerName $domain
-    ServerAlias www.$domain
+    ServerName $domain_name
+    ServerAlias www.$domain_name
+    ServerAdmin admin@$domain_name
 
-    DocumentRoot /var/www/html
+    DocumentRoot /var/www/$domain_name
 
-    ErrorLog '${APACHE_LOG_DIR}'/$domain-error.log
-    CustomLog '${APACHE_LOG_DIR}'/$domain-access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/$domain_name-error.log
+    CustomLog '${APACHE_LOG_DIR}'/$domain_name-access.log combined
 </VirtualHost>
 _EOF_
-a2ensite "$domain".conf
+# Enable new Virtual Host
+a2ensite "$domain_name".conf
+# Reload apache2
 systemctl reload apache2
+# Check for syntax errors
 apache2ctl -t
-if [[ $? = 0 ]]; then
-    echo "Apache was configured successfully!"
+if [[ $exit_stat == 0 ]]; then
+    title
+    echo "The script was successful installing and configuring the Apache webserver for the Domain, $domain_name."
     sleep 3
+    exit 0
 else
-    echo "There was a problem configuring Apache.."
+    title
+    echo "Something went wrong with the configuration of Apache."
     sleep 3
     exit 1
-fi
-if [[ $ssl = true ]]; then
-    apt install certbot -y
-    openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
-    mkdir -p /var/lib/letsencrypt/.well-known
-    chgrp www-data /var/lib/letsencrypt
-    chmod g+s /var/lib/letsencrypt
-    cat >> /etc/apache2/conf-available/letsencrypt.conf <<- _EOF_
-Alias /.well-known/acme-challenge/ "/var/lib/letsencrypt/.well-known/acme-challenge/"
-<Directory "/var/lib/letsencrypt/">
-    AllowOverride None
-    Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec
-    Require method GET POST OPTIONS
-</Directory>
-_EOF_
-    cat >> /etc/apache2/conf-available/ssl-params.conf <<- _EOF_
-SSLProtocol             all -SSLv3 -TLSv1 -TLSv1.1
-SSLCipherSuite          ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
-SSLHonorCipherOrder     off
-SSLSessionTickets       off
-
-SSLUseStapling On
-SSLStaplingCache "shmcb:logs/ssl_stapling(32768)"
-
-Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-Header always set X-Frame-Options SAMEORIGIN
-Header always set X-Content-Type-Options nosniff
-
-SSLOpenSSLConfCmd DHParameters "/etc/ssl/certs/dhparam.pem"
-_EOF_
-    a2enmod ssl headers http2
-    a2enconf ssl-params letsencrypt
-    systemctl reload apache2
-    certbot certonly --agree-tos --email admin@"$domain" --webroot -w /var/lib/letsencrypt/ -d "$domain" -d www."$domain"
-    cat >> /etc/apache2/sites-available/"$domain"-ssl.conf <<- _EOF_
-<VirtualHost *:443>
-  ServerName $domain
-  ServerAlias www.$domain
-
-  Protocols h2 http/1.1
-
-  <If "%{HTTP_HOST} == 'www.$domain'">
-    Redirect permanent / https://$domain/
-  </If>
-
-  DocumentRoot /var/www/html
-  ErrorLog '${APACHE_LOG_DIR}'/$domain-error.log
-  CustomLog '${APACHE_LOG_DIR}'/$domain-access.log combined
-
-  SSLEngine On
-  SSLCertificateFile /etc/letsencrypt/live/$domain/fullchain.pem
-  SSLCertificateKeyFile /etc/letsencrypt/live/$domain/privkey.pem
-</VirtualHost>
-_EOF_
-    a2ensite "$domain"-ssl.conf
-    systemctl reload apache2
-    apache2ctl -t
-    if [[ $? = 0 ]]; then
-        echo "Script completed Successfully!"
-        sleep 3
-        exit 0
-    else
-        echo "Script could not configure SSL for $domain.."
-        sleep 3
-        exit 1
-    fi
 fi
